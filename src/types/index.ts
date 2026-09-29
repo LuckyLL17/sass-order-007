@@ -7,6 +7,7 @@ export type MemberStatus = 'active' | 'pending';
 export type SortOption = 'popular' | 'rating' | 'price-low' | 'price-high' | 'newest' | 'users-desc' | 'users-asc';
 export type SubscriptionFilter = 'all' | 'subscribed' | 'not-subscribed' | 'expired';
 export type UsersRange = 'all' | 'lt-10k' | '10k-50k' | '50k-100k' | 'gt-100k';
+export type ReviewSort = 'newest' | 'likes' | 'rating';
 
 export interface Plan {
   id: string;
@@ -87,4 +88,27 @@ export interface MonthlySpending {
 export interface CategorySpending {
   name: string;
   value: number;
+}
+
+export interface ReviewReply {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Review {
+  id: string;
+  toolId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  rating: number;
+  content: string;
+  images: string[];
+  createdAt: string;
+  likedBy: string[];
+  replies: ReviewReply[];
 }

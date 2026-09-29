@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Star, 
-  Users, 
-  Check, 
-  X, 
-  ChevronLeft, 
+import {
+  ArrowLeft,
+  Star,
+  Users,
+  Check,
+  X,
+  ChevronLeft,
   ChevronRight,
   Shield,
   Zap,
@@ -18,18 +18,39 @@ import {
 import { tools, categories } from '@/mock/tools';
 import { useStore } from '@/store/useStore';
 import ToolCard from '@/components/ToolCard';
+import ReviewsSection from '@/components/review/ReviewsSection';
+import { getReviewStats } from '@/lib/reviews';
 import type { Plan, PlanPeriod } from '@/types';
 
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addSubscription } = useStore();
+  const { addSubscription, reviews } = useStore();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [currentScreenshot, setCurrentScreenshot] = useState(0);
   const [isYearly, setIsYearly] = useState(false);
 
   const tool = tools.find(t => t.id === id);
+
+  // 切换工具详情页时重置订阅流程相关状态，避免把上一个工具的选择带入新页面
+  useEffect(() => {
+    setSelectedPlan(null);
+    setShowSubscribeModal(false);
+    setIsYearly(false);
+    setCurrentScreenshot(0);
+  }, [id]);
+
+  const toolReviews = useMemo(
+    () => reviews.filter(review => review.toolId === id),
+    [reviews, id]
+  );
+
+  // 平均分与评价数：有评价时由评价数据计算，无评价时沿用静态评分
+  const reviewStats = useMemo(
+    () => (tool ? getReviewStats(toolReviews, tool.rating) : null),
+    [tool, toolReviews]
+  );
 
   if (!tool) {
     return (
@@ -117,8 +138,15 @@ export default function ToolDetail() {
               <div className="flex flex-wrap items-center gap-6 text-gray-400">
                 <div className="flex items-center gap-2">
                   <Star className="w-5 h-5 text-gold-400 fill-gold-400" />
-                  <span className="text-white font-semibold">{tool.rating}</span>
+                  <span className="text-white font-semibold">
+                    {reviewStats ? reviewStats.average.toFixed(1) : tool.rating}
+                  </span>
                   <span>评分</span>
+                  {reviewStats && reviewStats.total > 0 && (
+                    <a href="#reviews" className="text-sm text-primary-400 hover:text-primary-300 transition-colors">
+                      {reviewStats.total} 条评价
+                    </a>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
@@ -235,14 +263,19 @@ export default function ToolDetail() {
                 </div>
               </div>
             </motion.div>
+
+            <div id="reviews" className="scroll-mt-24">
+              <ReviewsSection tool={tool} />
+            </div>
           </div>
 
           <div className="lg:col-span-1">
             <motion.div
+              id="subscribe"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="card sticky top-24"
+              className="card sticky top-24 scroll-mt-24"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">订阅方案</h2>
