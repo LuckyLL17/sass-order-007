@@ -1,29 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Star, 
-  Users, 
-  Check, 
-  X, 
-  ChevronLeft, 
+import {
+  ArrowLeft,
+  Star,
+  Users,
+  Check,
+  X,
+  ChevronLeft,
   ChevronRight,
   Shield,
   Zap,
   Clock,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { tools, categories } from '@/mock/tools';
 import { useStore } from '@/store/useStore';
 import ToolCard from '@/components/ToolCard';
+import Reviews from '@/components/review/Reviews';
+import { getReviewStats } from '@/lib/reviews';
 import type { Plan, PlanPeriod } from '@/types';
 
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addSubscription } = useStore();
+  const { addSubscription, getReviewsByTool } = useStore();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [currentScreenshot, setCurrentScreenshot] = useState(0);
@@ -31,7 +34,24 @@ export default function ToolDetail() {
 
   const tool = tools.find(t => t.id === id);
 
-  if (!tool) {
+  // 切换详情页时重置本地状态，避免上一个工具的选择残留
+  useEffect(() => {
+    setSelectedPlan(null);
+    setShowSubscribeModal(false);
+    setCurrentScreenshot(0);
+    setIsYearly(false);
+  }, [id]);
+
+  const toolReviews = useMemo(
+    () => (tool ? getReviewsByTool(tool.id) : []),
+    [tool, getReviewsByTool],
+  );
+  const reviewStats = useMemo(
+    () => (tool ? getReviewStats(toolReviews, tool.rating) : null),
+    [toolReviews, tool],
+  );
+
+  if (!tool || !reviewStats) {
     return (
       <div className="min-h-screen bg-dark-950 pt-24 flex items-center justify-center">
         <div className="text-center">
@@ -115,11 +135,18 @@ export default function ToolDetail() {
               </div>
               <p className="text-xl text-gray-400 mb-4">{tool.description}</p>
               <div className="flex flex-wrap items-center gap-6 text-gray-400">
-                <div className="flex items-center gap-2">
+                <a
+                  href="#reviews"
+                  className="flex items-center gap-2 group"
+                  title="查看用户评价"
+                >
                   <Star className="w-5 h-5 text-gold-400 fill-gold-400" />
-                  <span className="text-white font-semibold">{tool.rating}</span>
-                  <span>评分</span>
-                </div>
+                  <span className="text-white font-semibold group-hover:text-gold-300 transition-colors">
+                    {reviewStats.average.toFixed(1)}
+                  </span>
+                  <span>评分{reviewStats.count > 0 ? `（${reviewStats.count} 条评价）` : ''}</span>
+                  <MessageSquare className="w-4 h-4 text-gray-500 group-hover:text-gold-400 transition-colors" />
+                </a>
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
                   <span className="text-white font-semibold">{(tool.usersCount / 1000).toFixed(0)}K+</span>
@@ -235,6 +262,16 @@ export default function ToolDetail() {
                 </div>
               </div>
             </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mt-8 scroll-mt-24"
+              id="reviews"
+            >
+              <Reviews tool={tool} />
+            </motion.div>
           </div>
 
           <div className="lg:col-span-1">
@@ -243,6 +280,7 @@ export default function ToolDetail() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
               className="card sticky top-24"
+              id="subscribe-card"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">订阅方案</h2>

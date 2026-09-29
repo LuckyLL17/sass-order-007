@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { User, UserSubscription, Tool, Category, SortOption, SubscriptionFilter, UsersRange } from '@/types';
+import type { User, UserSubscription, Tool, Category, SortOption, SubscriptionFilter, UsersRange, Review, ReviewReply } from '@/types';
 import { userSubscriptions } from '@/mock/subscriptions';
 import { tools } from '@/mock/tools';
+import { mockReviews } from '@/mock/reviews';
 
 interface NotificationSettings {
   emailNotifications: boolean;
@@ -15,6 +16,7 @@ interface Store {
   user: User | null;
   subscriptions: UserSubscription[];
   tools: Tool[];
+  reviews: Review[];
   selectedCategory: Category | 'all';
   searchQuery: string;
   sortBy: SortOption;
@@ -54,6 +56,11 @@ interface Store {
   clearAllFilters: () => void;
   getAllTags: () => string[];
   getPriceRange: () => { min: number; max: number };
+  getReviewsByTool: (toolId: string) => Review[];
+  hasUserReviewedTool: (toolId: string) => boolean;
+  addReview: (toolId: string, rating: number, content: string, images: string[]) => void;
+  toggleReviewLike: (reviewId: string) => void;
+  addReviewReply: (reviewId: string, content: string) => void;
 }
 
 const defaultNotificationSettings: NotificationSettings = {
@@ -68,6 +75,7 @@ export const useStore = create<Store>((set, get) => ({
   user: null,
   subscriptions: userSubscriptions,
   tools: tools,
+  reviews: mockReviews,
   selectedCategory: 'all',
   searchQuery: '',
   sortBy: 'popular',
@@ -334,5 +342,69 @@ export const useStore = create<Store>((set, get) => ({
       min: Math.min(...prices),
       max: Math.max(...prices),
     };
+  },
+
+  getReviewsByTool: (toolId) =>
+    get().reviews.filter(review => review.toolId === toolId),
+
+  hasUserReviewedTool: (toolId) => {
+    const { user, reviews } = get();
+    return !!user && reviews.some(review => review.toolId === toolId && review.userId === user.id);
+  },
+
+  addReview: (toolId, rating, content, images) => {
+    const { user } = get();
+    if (!user) return;
+    const newReview: Review = {
+      id: `review-${Date.now()}`,
+      toolId,
+      userId: user.id,
+      userName: user.name,
+      userAvatar: user.avatar,
+      rating,
+      content,
+      images,
+      createdAt: new Date().toISOString(),
+      likedBy: [],
+      replies: [],
+    };
+    set((state) => ({ reviews: [newReview, ...state.reviews] }));
+  },
+
+  toggleReviewLike: (reviewId) => {
+    const { user } = get();
+    if (!user) return;
+    set((state) => ({
+      reviews: state.reviews.map((review) => {
+        if (review.id !== reviewId) return review;
+        const liked = review.likedBy.includes(user.id);
+        return {
+          ...review,
+          likedBy: liked
+            ? review.likedBy.filter(id => id !== user.id)
+            : [...review.likedBy, user.id],
+        };
+      }),
+    }));
+  },
+
+  addReviewReply: (reviewId, content) => {
+    const { user } = get();
+    if (!user) return;
+    const newReply: ReviewReply = {
+      id: `reply-${Date.now()}`,
+      userId: user.id,
+      userName: user.name,
+      userAvatar: user.avatar,
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      reviews: state.reviews.map((review) =>
+        review.id === reviewId
+          ? { ...review, replies: [...review.replies, newReply] }
+          : review
+      ),
+    }));
   },
 }));
